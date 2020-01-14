@@ -1176,6 +1176,40 @@ pub extern "C" fn librustzcash_zip32_xfvk_address(
     true
 }
 
+/// Derive a Diversifier from a particular child key
+#[no_mangle]
+pub extern "C" fn librustzcash_zip32_diversifier_derive(
+    key: *const [c_uchar; 32],
+    index: *const [c_uchar; 11],
+    d_ret: *mut [c_uchar; 11],
+) -> bool {
+    let dk = zip32::DiversifierKey(unsafe { *key });
+    let j = zip32::DiversifierIndex(unsafe { *index });
+    let (_, d_j) = dk.diversifier(j).unwrap();
+
+    let d_ret = unsafe { &mut *d_ret };
+    d_ret.copy_from_slice(&d_j.0);
+
+    true
+}
+
+#[test]
+fn test_librustzcash_zip32_diversifier_derive() {
+    let key = [1u8; 32];
+    let index = [1u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+    let mut d = [0u8; 11];
+
+    librustzcash_zip32_diversifier_derive(
+        &key as *const [c_uchar; 32],
+        &index as *const [c_uchar; 11],
+        &mut d as *mut [c_uchar; 11]
+    );
+
+    // stable result
+    assert_eq!(d, [23, 141, 167, 9, 227, 29, 78, 255, 39, 130, 202]);
+}
+
 fn construct_mmr_tree(
     // Consensus branch id
     cbranch: u32,

@@ -512,6 +512,14 @@ mod tests {
             xsk_5h_7
         );
     }
+    #[test]
+    fn test_ztron_diversifier_derive() {
+        let dk = DiversifierKey([1; 32]);
+        // let j_0 = DiversifierIndex::new();
+        let j_1 = DiversifierIndex([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        let (j, d_j) = dk.diversifier(j_1).unwrap();
+        assert_eq!(d_j.0.len(), 11);
+    }
 
     #[test]
     fn diversifier() {

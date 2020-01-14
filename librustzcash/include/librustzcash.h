@@ -308,6 +308,13 @@ extern "C" {
         unsigned char *addr_ret
     );
 
+    /// Derive a Diversifier from a particular child key
+    bool librustzcash_zip32_diversifier_derive(
+        const unsigned char *key,
+        const unsigned char *index,
+        unsigned char* d_ret,
+    );
+
     uint32_t librustzcash_mmr_append(
         uint32_t cbranch,
         uint32_t t_len,
