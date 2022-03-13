@@ -1431,10 +1431,15 @@ pub extern "system" fn librustzcash_sapling_output_proof(
         esk: Some(esk.clone()),
     };
 
+    let mut params = match unsafe { SAPLING_OUTPUT_PARAMS.as_ref() } {
+        Some(T) => T,
+        None => return false,
+    };
+
     // Create proof
     let proof = create_random_proof(
         instance,
-        unsafe { SAPLING_OUTPUT_PARAMS.as_ref() }.unwrap(),
+        params,
         &mut rng,
     ).expect("proving should not fail");
 
