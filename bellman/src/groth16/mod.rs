@@ -3,6 +3,7 @@ use pairing::{
     CurveAffine,
     EncodedPoint
 };
+use std::fmt;
 
 use ::{
     SynthesisError
@@ -97,7 +98,7 @@ impl<E: Engine> Proof<E> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct VerifyingKey<E: Engine> {
     // alpha in g1 for verifying and for creating A/C elements of
     // proof. Never the point at infinity.
@@ -123,6 +124,13 @@ pub struct VerifyingKey<E: Engine> {
     // this is the same size as the number of inputs, and never contains points
     // at infinity.
     pub ic: Vec<E::G1Affine>
+}
+
+impl<E: Engine> fmt::Display for VerifyingKey<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "VerifyingKey: alpha_g1:{},beta_g1:{}", self.alpha_g1,
+            self.beta_g1)
+    }
 }
 
 impl<E: Engine> PartialEq for VerifyingKey<E> {
@@ -235,6 +243,11 @@ pub struct Parameters<E: Engine> {
     // infinity for the same reason as the "A" polynomials.
     pub b_g1: Arc<Vec<E::G1Affine>>,
     pub b_g2: Arc<Vec<E::G2Affine>>
+}
+impl<E: Engine> fmt::Debug for Parameters<E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Parameters-vk:{}", self.vk)
+    }
 }
 
 impl<E: Engine> PartialEq for Parameters<E> {
@@ -380,7 +393,7 @@ impl<E: Engine> Parameters<E> {
         })
     }
 }
-
+#[derive(Clone)]
 pub struct PreparedVerifyingKey<E: Engine> {
     /// Pairing result of alpha*beta
     alpha_g1_beta_g2: E::Fqk,

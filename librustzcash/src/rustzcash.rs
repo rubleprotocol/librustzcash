@@ -72,12 +72,15 @@ lazy_static! {
     static ref JUBJUB: JubjubBls12 = { JubjubBls12::new() };
 }
 
-static mut SAPLING_SPEND_VK: Option<PreparedVerifyingKey<Bls12>> = None;
-static mut SAPLING_OUTPUT_VK: Option<PreparedVerifyingKey<Bls12>> = None;
+pub struct saplingSnarkParams {
+    spend_vk: PreparedVerifyingKey<Bls12>,
+    output_vk: PreparedVerifyingKey<Bls12>,
+    spend_params: Parameters<Bls12>,
+    output_params: Parameters<Bls12>
+}
+
 static mut SPROUT_GROTH16_VK: Option<PreparedVerifyingKey<Bls12>> = None;
 
-static mut SAPLING_SPEND_PARAMS: Option<Parameters<Bls12>> = None;
-static mut SAPLING_OUTPUT_PARAMS: Option<Parameters<Bls12>> = None;
 static mut SPROUT_GROTH16_PARAMS_PATH: Option<PathBuf> = None;
 
 fn is_small_order<Order>(p: &edwards::Point<Bls12, Order>) -> bool {
@@ -134,7 +137,7 @@ pub extern "system" fn librustzcash_init_zksnark_params(
     output_path: *const u8,
     output_path_len: usize,
     output_hash: *const c_char
-) {
+) -> *mut saplingSnarkParams {
     let spend_path = Path::new(OsStr::from_bytes(unsafe {
         slice::from_raw_parts(spend_path, spend_path_len)
     }));
@@ -158,7 +161,7 @@ pub extern "system" fn librustzcash_init_zksnark_params(
     output_path: *const u16,
     output_path_len: usize,
     output_hash: *const c_char
-) {
+) -> *mut saplingSnarkParams {
     let spend_path =
         OsString::from_wide(unsafe { slice::from_raw_parts(spend_path, spend_path_len) });
     let output_path =
@@ -177,7 +180,7 @@ fn init_zksnark_params(
     spend_hash: *const c_char,
     output_path: &Path,
     output_hash: *const c_char
-) {
+) -> *mut saplingSnarkParams {
     // Initialize jubjub parameters here
     lazy_static::initialize(&JUBJUB);
 
@@ -205,7 +208,6 @@ fn init_zksnark_params(
     let output_params = Parameters::<Bls12>::read(&mut output_fs, false)
         .expect("couldn't deserialize Sapling spend parameters file");
 
-
     // There is extra stuff (the transcript) at the end of the parameter file which is
     // used to verify the parameter validity, but we're not interested in that. We do
     // want to read it, though, so that the BLAKE2b computed afterward is consistent
@@ -228,15 +230,14 @@ fn init_zksnark_params(
     let spend_vk = prepare_verifying_key(&spend_params.vk);
     let output_vk = prepare_verifying_key(&output_params.vk);
 
-    // Caller is responsible for calling this function once, so
-    // these global mutations are safe.
-    unsafe {
-        SAPLING_SPEND_PARAMS = Some(spend_params);
-        SAPLING_OUTPUT_PARAMS = Some(output_params);
+    let ctx = Box::new(saplingSnarkParams {
+        spend_vk,
+        output_vk,
+        spend_params,
+        output_params,
+    });
 
-        SAPLING_SPEND_VK = Some(spend_vk);
-        SAPLING_OUTPUT_VK = Some(output_vk);
-    }
+    Box::into_raw(ctx)
 }
 
 #[no_mangle]
@@ -635,6 +636,7 @@ const GROTH_PROOF_SIZE: usize = 48 // π_A
 
 #[no_mangle]
 pub extern "system" fn librustzcash_sapling_check_spend(
+    params_ctx: *const saplingSnarkParams,
     ctx: *mut SaplingVerificationContext,
     cv: *const [c_uchar; 32],
     anchor: *const [c_uchar; 32],
@@ -737,7 +739,7 @@ pub extern "system" fn librustzcash_sapling_check_spend(
 
     // Verify the proof
     match verify_proof(
-        unsafe { SAPLING_SPEND_VK.as_ref() }.unwrap(),
+        & unsafe {&*params_ctx}.spend_vk, 
         &zkproof,
         &public_input[..],
     ) {
@@ -751,6 +753,7 @@ pub extern "system" fn librustzcash_sapling_check_spend(
 
 #[no_mangle]
 pub extern "system" fn librustzcash_sapling_check_spend_new(
+    params_ctx: *const saplingSnarkParams,
     cv: *const [c_uchar; 32],
     anchor: *const [c_uchar; 32],
     nullifier: *const [c_uchar; 32],
@@ -843,7 +846,7 @@ pub extern "system" fn librustzcash_sapling_check_spend_new(
 
     // Verify the proof
     match verify_proof(
-        unsafe { SAPLING_SPEND_VK.as_ref() }.unwrap(),
+        & unsafe {&*params_ctx}.spend_vk,
         &zkproof,
         &public_input[..],
     ) {
@@ -857,6 +860,7 @@ pub extern "system" fn librustzcash_sapling_check_spend_new(
 
 #[no_mangle]
 pub extern "system" fn librustzcash_sapling_check_output(
+    params_ctx: *const saplingSnarkParams,
     ctx: *mut SaplingVerificationContext,
     cv: *const [c_uchar; 32],
     cm: *const [c_uchar; 32],
@@ -922,7 +926,7 @@ pub extern "system" fn librustzcash_sapling_check_output(
 
     // Verify the proof
     match verify_proof(
-        unsafe { SAPLING_OUTPUT_VK.as_ref() }.unwrap(),
+        & unsafe {&*params_ctx}.output_vk,
         &zkproof,
         &public_input[..],
     ) {
@@ -936,6 +940,7 @@ pub extern "system" fn librustzcash_sapling_check_output(
 
 #[no_mangle]
 pub extern "system" fn librustzcash_sapling_check_output_new(
+    params_ctx: *const saplingSnarkParams,
     cv: *const [c_uchar; 32],
     cm: *const [c_uchar; 32],
     epk: *const [c_uchar; 32],
@@ -990,7 +995,7 @@ pub extern "system" fn librustzcash_sapling_check_output_new(
 
     // Verify the proof
     match verify_proof(
-        unsafe { SAPLING_OUTPUT_VK.as_ref() }.unwrap(),
+        & unsafe {&*params_ctx}.output_vk,
         &zkproof,
         &public_input[..],
     ) {
@@ -1356,6 +1361,7 @@ pub struct SaplingProvingContext {
 
 #[no_mangle]
 pub extern "system" fn librustzcash_sapling_output_proof(
+    params_ctx: *const saplingSnarkParams,
     ctx: *mut SaplingProvingContext,
     esk: *const [c_uchar; 32],
     diversifier: *const [c_uchar; 11],
@@ -1434,7 +1440,7 @@ pub extern "system" fn librustzcash_sapling_output_proof(
     // Create proof
     let proof = create_random_proof(
         instance,
-        unsafe { SAPLING_OUTPUT_PARAMS.as_ref() }.unwrap(),
+        & unsafe {&*params_ctx}.output_params,
         &mut rng,
     ).expect("proving should not fail");
 
@@ -1576,6 +1582,7 @@ pub extern "system" fn librustzcash_sapling_binding_sig(
 
 #[no_mangle]
 pub extern "system" fn librustzcash_sapling_spend_proof(
+    params_ctx: *const saplingSnarkParams,
     ctx: *mut SaplingProvingContext,
     ak: *const [c_uchar; 32],
     nsk: *const [c_uchar; 32],
@@ -1755,7 +1762,7 @@ pub extern "system" fn librustzcash_sapling_spend_proof(
     // Create proof
     let proof = create_random_proof(
         instance,
-        unsafe { SAPLING_SPEND_PARAMS.as_ref() }.unwrap(),
+        & unsafe {&*params_ctx}.spend_params,
         &mut rng,
     ).expect("proving should not fail");
 
@@ -1787,7 +1794,7 @@ pub extern "system" fn librustzcash_sapling_spend_proof(
 
     // Verify the proof
     match verify_proof(
-        unsafe { SAPLING_SPEND_VK.as_ref() }.unwrap(),
+        & unsafe {&*params_ctx}.spend_vk,
         &proof,
         &public_input[..],
     ) {
