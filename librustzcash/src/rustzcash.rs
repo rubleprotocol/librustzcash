@@ -72,11 +72,11 @@ lazy_static! {
     static ref JUBJUB: JubjubBls12 = { JubjubBls12::new() };
 }
 
-pub struct saplingSnarkParams {
-    spend_vk: PreparedVerifyingKey<Bls12>,
-    output_vk: PreparedVerifyingKey<Bls12>,
+pub struct ZcashParameters {
     spend_params: Parameters<Bls12>,
-    output_params: Parameters<Bls12>
+    spend_vk: PreparedVerifyingKey<Bls12>,
+    output_params: Parameters<Bls12>,
+    output_vk: PreparedVerifyingKey<Bls12>
 }
 
 static mut SPROUT_GROTH16_VK: Option<PreparedVerifyingKey<Bls12>> = None;
@@ -137,7 +137,7 @@ pub extern "system" fn librustzcash_init_zksnark_params(
     output_path: *const u8,
     output_path_len: usize,
     output_hash: *const c_char
-) -> *mut saplingSnarkParams {
+) -> *mut ZcashParameters {
     let spend_path = Path::new(OsStr::from_bytes(unsafe {
         slice::from_raw_parts(spend_path, spend_path_len)
     }));
@@ -161,7 +161,7 @@ pub extern "system" fn librustzcash_init_zksnark_params(
     output_path: *const u16,
     output_path_len: usize,
     output_hash: *const c_char
-) -> *mut saplingSnarkParams {
+) -> *mut ZcashParameters {
     let spend_path =
         OsString::from_wide(unsafe { slice::from_raw_parts(spend_path, spend_path_len) });
     let output_path =
@@ -180,7 +180,7 @@ fn init_zksnark_params(
     spend_hash: *const c_char,
     output_path: &Path,
     output_hash: *const c_char
-) -> *mut saplingSnarkParams {
+) -> *mut ZcashParameters {
     // Initialize jubjub parameters here
     lazy_static::initialize(&JUBJUB);
 
@@ -230,11 +230,11 @@ fn init_zksnark_params(
     let spend_vk = prepare_verifying_key(&spend_params.vk);
     let output_vk = prepare_verifying_key(&output_params.vk);
 
-    let ctx = Box::new(saplingSnarkParams {
-        spend_vk,
-        output_vk,
+    let ctx = Box::new(ZcashParameters {
         spend_params,
+        spend_vk,
         output_params,
+        output_vk
     });
 
     Box::into_raw(ctx)
@@ -636,7 +636,7 @@ const GROTH_PROOF_SIZE: usize = 48 // π_A
 
 #[no_mangle]
 pub extern "system" fn librustzcash_sapling_check_spend(
-    params_ctx: *const saplingSnarkParams,
+    params_ctx: *const ZcashParameters,
     ctx: *mut SaplingVerificationContext,
     cv: *const [c_uchar; 32],
     anchor: *const [c_uchar; 32],
@@ -753,7 +753,7 @@ pub extern "system" fn librustzcash_sapling_check_spend(
 
 #[no_mangle]
 pub extern "system" fn librustzcash_sapling_check_spend_new(
-    params_ctx: *const saplingSnarkParams,
+    params_ctx: *const ZcashParameters,
     cv: *const [c_uchar; 32],
     anchor: *const [c_uchar; 32],
     nullifier: *const [c_uchar; 32],
@@ -860,7 +860,7 @@ pub extern "system" fn librustzcash_sapling_check_spend_new(
 
 #[no_mangle]
 pub extern "system" fn librustzcash_sapling_check_output(
-    params_ctx: *const saplingSnarkParams,
+    params_ctx: *const ZcashParameters,
     ctx: *mut SaplingVerificationContext,
     cv: *const [c_uchar; 32],
     cm: *const [c_uchar; 32],
@@ -940,7 +940,7 @@ pub extern "system" fn librustzcash_sapling_check_output(
 
 #[no_mangle]
 pub extern "system" fn librustzcash_sapling_check_output_new(
-    params_ctx: *const saplingSnarkParams,
+    params_ctx: *const ZcashParameters,
     cv: *const [c_uchar; 32],
     cm: *const [c_uchar; 32],
     epk: *const [c_uchar; 32],
@@ -1361,7 +1361,7 @@ pub struct SaplingProvingContext {
 
 #[no_mangle]
 pub extern "system" fn librustzcash_sapling_output_proof(
-    params_ctx: *const saplingSnarkParams,
+    params_ctx: *const ZcashParameters,
     ctx: *mut SaplingProvingContext,
     esk: *const [c_uchar; 32],
     diversifier: *const [c_uchar; 11],
@@ -1582,7 +1582,7 @@ pub extern "system" fn librustzcash_sapling_binding_sig(
 
 #[no_mangle]
 pub extern "system" fn librustzcash_sapling_spend_proof(
-    params_ctx: *const saplingSnarkParams,
+    params_ctx: *const ZcashParameters,
     ctx: *mut SaplingProvingContext,
     ak: *const [c_uchar; 32],
     nsk: *const [c_uchar; 32],
