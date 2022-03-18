@@ -24,7 +24,7 @@ extern "C" {
 
     /// Loads the zk-SNARK parameters into memory and saves
     /// paths as necessary. Only called once.
-    void librustzcash_init_zksnark_params(
+    void * librustzcash_init_zksnark_params(
         const codeunit* spend_path,
         size_t spend_path_len,
         const char* spend_hash,
@@ -89,6 +89,7 @@ extern "C" {
     /// commitment) and `rk` (so that you don't have to compute it) along
     /// with the proof.
     bool librustzcash_sapling_spend_proof(
+        void *params_ctx,
         void *ctx,
         const unsigned char *ak,
         const unsigned char *nsk,
@@ -107,6 +108,7 @@ extern "C" {
     /// proof given the necessary witness information. It outputs `cv`
     /// and the `zkproof`.
     bool librustzcash_sapling_output_proof(
+        void *params_ctx,
         void *ctx,
         const unsigned char *esk,
         const unsigned char *diversifier,
@@ -138,6 +140,7 @@ extern "C" {
     /// Check the validity of a Sapling Spend description,
     /// accumulating the value commitment into the context.
     bool librustzcash_sapling_check_spend(
+        void *params_ctx,
         void *ctx,
         const unsigned char *cv,
         const unsigned char *anchor,
@@ -151,6 +154,7 @@ extern "C" {
     /// Check the validity of a Sapling Output description,
     /// accumulating the value commitment into the context.
     bool librustzcash_sapling_check_output(
+        void *params_ctx,
         void *ctx,
         const unsigned char *cv,
         const unsigned char *cm,
@@ -170,6 +174,7 @@ extern "C" {
     /// Check the validity of a Sapling Spend description
     /// This function is only called by specific contract
     bool librustzcash_sapling_check_spend_new(
+            void *params_ctx,
             const unsigned char *cv,
             const unsigned char *anchor,
             const unsigned char *nullifier,
@@ -182,6 +187,7 @@ extern "C" {
     /// Check the validity of a Sapling Output description,
     /// This function is only called by specific contract
     bool librustzcash_sapling_check_output_new(
+            void *params_ctx,
             const unsigned char *cv,
             const unsigned char *cm,
             const unsigned char *ephemeralKey,
